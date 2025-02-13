@@ -13,7 +13,7 @@ namespace BotConversation
 
         public DialogStatus GetDialogStatus(string chatId)
         {
-            if(!DialogStatus.ContainsKey(chatId))
+            if (!DialogStatus.ContainsKey(chatId))
             {
                 var firsDialog = DialogsExecutionOrder.First();
                 var firsConversationDialog = firsDialog.ConversationOrder.First();
@@ -24,15 +24,16 @@ namespace BotConversation
 
         public void SaveStatus(string chatId, DialogStatus status)
         {
+            status.UpdatedAt = DateTime.Now;
             DialogStatus[chatId] = status;
         }
 
         public void RemoveStatus(string chatId, DialogStatus? dialogStatus = default)
         {
-            if(dialogStatus?.Parent != null)
+            if (dialogStatus?.Parent != null)
             {
                 dialogStatus.Parent.SubStatus = null;
-            } 
+            }
             else if (DialogStatus.ContainsKey(chatId))
             {
                 DialogStatus.Remove(chatId);
@@ -44,7 +45,7 @@ namespace BotConversation
             bool hasNext = false;
             DialogStatus mainStatus = GetDialogStatus(chatId);
             DialogStatus currentStatus = dialogStatus == default ? mainStatus : dialogStatus;
-            
+
             if (currentStatus != null)
             {
                 Dialog? dialog = AllDialogs.FirstOrDefault(x => x.Name == currentStatus.DialogName);
@@ -55,11 +56,11 @@ namespace BotConversation
                 int currentConversationIndex = Array.IndexOf(dialog.ConversationOrder, currentStatus.ConversationStatus.Name);
 
                 //if no has more conversation
-                if(currentConversationIndex >= dialog.ConversationOrder.Length - 1)
+                if (currentConversationIndex >= dialog.ConversationOrder.Length - 1)
                 {
                     //if has next dialogs
                     int currentDialogIndex = Array.IndexOf(DialogsExecutionOrder, dialog);
-                    if(DialogsExecutionOrder.Any(x => x.Name == dialog.Name) && currentDialogIndex < DialogsExecutionOrder.Length -1) 
+                    if (DialogsExecutionOrder.Any(x => x.Name == dialog.Name) && currentDialogIndex < DialogsExecutionOrder.Length - 1)
                     {
                         var newCurrentDialog = DialogsExecutionOrder[currentDialogIndex + 1];
                         currentStatus.Set(newCurrentDialog.Name, newCurrentDialog.ConversationOrder.First());
@@ -74,7 +75,7 @@ namespace BotConversation
                 {
                     currentStatus.Set(dialog.ConversationOrder[currentConversationIndex + 1]);
                     SaveStatus(chatId, mainStatus);
-                }   
+                }
             }
             return hasNext;
         }
@@ -83,7 +84,7 @@ namespace BotConversation
         {
             DialogStatus currentStatus = dialogStatus == default ? GetDialogStatus(chatId) : dialogStatus;
 
-            if(currentStatus.SubStatus != null)
+            if (currentStatus.SubStatus != null)
             {
                 await RunDialog(chatId, currentStatus.SubStatus, args);
                 return;
@@ -94,6 +95,7 @@ namespace BotConversation
             {
                 dialog.DialogStatus = currentStatus;
                 dialog.DialogManager = this;
+                dialog.ChatId = chatId;
 
                 if (currentStatus.ConversationStatus.Sent)
                 {
@@ -101,16 +103,16 @@ namespace BotConversation
                         .FirstOrDefault(m =>
                         m.GetCustomAttributes(typeof(ConversationValidator), true).Length > 0 && ((ConversationValidator?)m.GetCustomAttribute(typeof(ConversationValidator), true))?.Name == currentStatus.ConversationStatus.Name);
 
-                    if((methodValidator != null && ((bool)methodValidator.Invoke(dialog, args)!)) || methodValidator == null)
+                    if ((methodValidator != null && ((bool)methodValidator.Invoke(dialog, args)!)) || methodValidator == null)
                     {
-                        if(Next(chatId, currentStatus))
+                        if (Next(chatId, currentStatus))
                         {
                             await RunDialog(chatId, currentStatus, args);
                         }
                         else
                         {
                             RemoveStatus(chatId, dialogStatus);
-                            if(dialogStatus?.Parent != null) await RunDialog(chatId, dialogStatus.Parent, args);
+                            if (dialogStatus?.Parent != null) await RunDialog(chatId, dialogStatus.Parent, args);
                             else await RunDialog(chatId, GetDialogStatus(chatId), args);
                         }
                         return;
@@ -136,6 +138,19 @@ namespace BotConversation
                 await RunDialog(chatId, args: args);
                 RemoveStatus(chatId);
             }
+        }
+
+        public static int ClearStatusOldThen(int hours)
+        {
+            int count = 0;
+            var statuses = DialogStatus.Where(x => (x.Value.UpdatedAt - DateTime.Now).TotalHours > hours);
+            foreach (var status in statuses)
+            {
+                DialogStatus.Remove(status.Key);
+                count++;
+            }
+
+            return count;
         }
     }
 }

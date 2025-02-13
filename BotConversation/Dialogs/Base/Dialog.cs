@@ -4,6 +4,12 @@ namespace BotConversation.Dialogs.Base
 {
     public abstract class Dialog
     {
+        public Dialog(string name, string[] conversationOrder)
+        {
+            Name = name;
+            ConversationOrder = conversationOrder;
+        }
+
         public string Name { get; set; }
         public string[] ConversationOrder = { };
         public string ChatId { get; set; }
@@ -12,22 +18,16 @@ namespace BotConversation.Dialogs.Base
 
         public bool IsValidationContext() => DialogStatus.ConversationStatus.Sent;
 
-        public void SetUserStatus(string chatId, string key, object value)
+        public void SetData<T>(string key, T value)
         {
-            if(DialogManager.GetDialogStatus(chatId).UserStatus.ContainsKey(key))
-            {
-
-            }
-            DialogManager.GetDialogStatus(chatId).UserStatus[key] = value;
+            var userStatus = DialogManager.GetDialogStatus(ChatId).UserStatus;
+            userStatus[key] = value;
         }
 
-        public T GetUserStatus<T>(string chatId, string key)
+        public T GetData<T>(string key)
         {
-            if (!this.DialogManager.GetDialogStatus(chatId).UserStatus.ContainsKey(key))
-            {
-                return (T)(object)null;
-            }
-            return (T)this.DialogManager.GetDialogStatus(chatId).UserStatus[key];
+            var userStatus = DialogManager.GetDialogStatus(ChatId).UserStatus;
+            return (T)userStatus[key];
         }
 
         public void FinishDialog(string chatId)

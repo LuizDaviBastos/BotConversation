@@ -4,6 +4,7 @@
     {
         public DialogStatus() { }
 
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
         public DialogStatus(string dialogName, string conversationName) => (DialogName, ConversationStatus) = (dialogName, new ConversationStatus(conversationName));
         public DialogStatus(string dialogName, string conversationName, DialogStatus parent) => (DialogName, ConversationStatus, Parent) = (dialogName, new ConversationStatus(conversationName), parent);
 
