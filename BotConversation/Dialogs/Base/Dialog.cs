@@ -1,4 +1,6 @@
 ﻿using BotConversation.Models;
+using BotConversation.Models.Attributes;
+using System.Reflection;
 
 namespace BotConversation.Dialogs.Base
 {
@@ -10,11 +12,24 @@ namespace BotConversation.Dialogs.Base
             ConversationOrder = conversationOrder;
         }
 
+        public Dialog(string[] conversationOrder)
+        {
+            Name = this.GetType().Name;
+            ConversationOrder = conversationOrder;
+        }
+
+        public Dialog()
+        {
+            Name = this.GetType().Name;
+            ConversationOrder = GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Where(m => !m.GetCustomAttributes(typeof(ConversationValidator), false).Any()).Select(x => x.Name).ToArray();
+        }
+
         public string Name { get; set; }
         public string[] ConversationOrder = { };
         public string ChatId { get; set; }
         public DialogStatus DialogStatus { get; set; }
-        public DialogManager DialogManager { get; set; } = new();
+        public DialogManager DialogManager { get; set; }
 
         public bool IsValidationContext() => DialogStatus.ConversationStatus.Sent;
 
@@ -24,13 +39,23 @@ namespace BotConversation.Dialogs.Base
             userStatus[key] = value;
         }
 
-        public T GetData<T>(string key)
+        public T? GetData<T>(string key)
         {
             var userStatus = DialogManager.GetDialogStatus(ChatId).UserStatus;
-            return (T)userStatus[key];
+            if (!userStatus.ContainsKey(key)) return default(T);
+
+            var value = userStatus[key];
+            if(value != null)
+            {
+                return (T)userStatus[key];
+            }
+            else
+            {
+                return default(T);
+            }
         }
 
-        public void FinishDialog(string chatId)
+        public void FinishDialog()
         {
             if (DialogStatus.Parent != null)
             {
@@ -38,7 +63,7 @@ namespace BotConversation.Dialogs.Base
             }
             else
             {
-                this.DialogManager.RemoveStatus(chatId);
+                this.DialogManager.RemoveStatus(ChatId);
             }
         }
 
@@ -48,7 +73,16 @@ namespace BotConversation.Dialogs.Base
             if (dialog == null) return;
             
             DialogStatus.SubStatus = new DialogStatus(dialogName, dialog.ConversationOrder.First(), DialogStatus);
-            await this.DialogManager.RunDialog(ChatId, DialogStatus, args);
+            await this.DialogManager.RunDialog(ChatId, DialogStatus.SubStatus, args);
+        }
+
+        public async Task RunDialog(string dialogName, string conversation, params object[] args)
+        {
+            Dialog? dialog = DialogManager.AllDialogs.FirstOrDefault(x => x.Name == dialogName);
+            if (dialog == null) return;
+
+            DialogStatus.SubStatus = new DialogStatus(dialogName, conversation, DialogStatus);
+            await this.DialogManager.RunDialog(ChatId, DialogStatus.SubStatus, args);
         }
     }
 }

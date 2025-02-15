@@ -1,4 +1,5 @@
 ﻿using BotConversation.Dialogs.Base;
+using static BotConversation.DialogManager;
 
 namespace BotConversation.Connectors.Base
 {
@@ -15,6 +16,11 @@ namespace BotConversation.Connectors.Base
         public virtual async Task HandleUpdateAsync(string chatId, object botClient, object message, CancellationToken cancellationToken)
         {
             await dialogManager.RunDialog(chatId, null, botClient, message, cancellationToken);
+        }
+
+        public virtual void HandleException(ExceptionHandle exceptionHandler)
+        {
+            dialogManager.OnException += exceptionHandler;
         }
     }
 }

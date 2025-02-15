@@ -7,6 +7,9 @@ namespace BotConversation
 {
     public class DialogManager
     {
+        public delegate void ExceptionHandle(Exception ex, string chatId);
+        public event ExceptionHandle? OnException;
+
         public static Dictionary<string, DialogStatus> DialogStatus = new Dictionary<string, DialogStatus>();
         public Dialog[] AllDialogs { get; set; } = { };
         public Dialog[] DialogsExecutionOrder { get; set; } = { };
@@ -118,13 +121,22 @@ namespace BotConversation
                         return;
                     }
                 }
+                try
+                {
+                    MethodInfo method = dialog.GetType().GetMethods().FirstOrDefault(m => m.Name == currentStatus.ConversationStatus.Name)!;
+                    if (method == null) return;
 
-                MethodInfo method = dialog.GetType().GetMethods().FirstOrDefault(m => m.Name == currentStatus.ConversationStatus.Name)!;
-                if (method == null) return;
-
-                Task task = (Task)method.Invoke(dialog, args)!;
-                await task.ConfigureAwait(false);
-                currentStatus.ConversationStatus.Sent = true;
+                    Task task = (Task)method.Invoke(dialog, args)!;
+                    await task.ConfigureAwait(false);
+                    currentStatus.ConversationStatus.Sent = true;
+                }
+                catch (Exception ex)
+                {
+                    if(OnException != null)
+                    {
+                        OnException.Invoke(ex, chatId);
+                    }
+                }
             }
         }
 
@@ -151,6 +163,14 @@ namespace BotConversation
             }
 
             return count;
+        }
+
+        public static void ClearStatus(string chatId)
+        {
+            if (DialogStatus.ContainsKey(chatId))
+            {
+                DialogStatus.Remove(chatId);
+            }
         }
     }
 }
