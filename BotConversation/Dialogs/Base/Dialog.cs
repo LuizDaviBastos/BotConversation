@@ -25,6 +25,7 @@ namespace BotConversation.Dialogs.Base
                 .Where(m => !m.GetCustomAttributes(typeof(ConversationValidator), false).Any()).Select(x => x.Name).ToArray();
         }
 
+        public bool MainDialog { get; set; }
         public string Name { get; set; }
         public string[] ConversationOrder = { };
         public string ChatId { get; set; }
