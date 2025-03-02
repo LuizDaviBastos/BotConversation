@@ -12,6 +12,7 @@ namespace BotConversation
 
         public static Dictionary<string, DialogStatus> DialogStatus = new Dictionary<string, DialogStatus>();
         public Dialog[] AllDialogs { get; set; } = { };
+        public StatelessDialog[] StatelessDialogs { get; set; } = { };
         public Dialog[] DialogsExecutionOrder { get; set; } = { };
 
         public DialogStatus GetDialogStatus(string chatId)
@@ -83,8 +84,14 @@ namespace BotConversation
             return hasNext;
         }
 
-        public async Task RunDialog(string chatId, DialogStatus? dialogStatus = default, params object[] args)
+        public async Task RunDialog(string chatId, DialogStatus? dialogStatus = default, params object[] args) => await RunDialog(chatId, dialogStatus, false, args);
+
+        public async Task RunDialog(string chatId, params object[] args) => await RunDialog(chatId, dialogStatus: default, args);
+
+        public async Task RunDialog(string chatId, DialogStatus? dialogStatus = default, bool ignoreStateless = false, params object[] args)
         {
+            if(!ignoreStateless && !await RunStatelessDialogs(chatId, args[0], args[1], (CancellationToken)args[2])) return;
+
             DialogStatus currentStatus = dialogStatus == default ? GetDialogStatus(chatId) : dialogStatus;
 
             if (currentStatus.SubStatus != null)
@@ -100,29 +107,30 @@ namespace BotConversation
                 dialog.DialogManager = this;
                 dialog.ChatId = chatId;
 
-                if (currentStatus.ConversationStatus.Sent)
-                {
-                    MethodInfo? methodValidator = dialog.GetType().GetMethods()
-                        .FirstOrDefault(m =>
-                        m.GetCustomAttributes(typeof(ConversationValidator), true).Length > 0 && ((ConversationValidator?)m.GetCustomAttribute(typeof(ConversationValidator), true))?.Name == currentStatus.ConversationStatus.Name);
-
-                    if ((methodValidator != null && ((bool)methodValidator.Invoke(dialog, args)!)) || methodValidator == null)
-                    {
-                        if (Next(chatId, currentStatus))
-                        {
-                            await RunDialog(chatId, currentStatus, args);
-                        }
-                        else
-                        {
-                            RemoveStatus(chatId, dialogStatus);
-                            if (dialogStatus?.Parent != null) await RunDialog(chatId, dialogStatus.Parent, args);
-                            else await RunDialog(chatId, GetDialogStatus(chatId), args);
-                        }
-                        return;
-                    }
-                }
                 try
                 {
+                    if (currentStatus.ConversationStatus.Sent)
+                    {
+                        MethodInfo? methodValidator = dialog.GetType().GetMethods()
+                            .FirstOrDefault(m =>
+                            m.GetCustomAttributes(typeof(ConversationValidator), true).Length > 0 && ((ConversationValidator?)m.GetCustomAttribute(typeof(ConversationValidator), true))?.Name == currentStatus.ConversationStatus.Name);
+
+                        if ((methodValidator != null && ((bool)methodValidator.Invoke(dialog, args)!)) || methodValidator == null)
+                        {
+                            if (Next(chatId, currentStatus))
+                            {
+                                await RunDialog(chatId, currentStatus, args);
+                            }
+                            else
+                            {
+                                RemoveStatus(chatId, dialogStatus);
+                                if (dialogStatus?.Parent != null) await RunDialog(chatId, dialogStatus.Parent, args);
+                                else await RunDialog(chatId, GetDialogStatus(chatId), args);
+                            }
+                            return;
+                        }
+                    }
+
                     MethodInfo method = dialog.GetType().GetMethods().FirstOrDefault(m => m.Name == currentStatus.ConversationStatus.Name)!;
                     if (method == null) return;
 
@@ -137,18 +145,6 @@ namespace BotConversation
                         OnException.Invoke(ex, chatId);
                     }
                 }
-            }
-        }
-
-        public async Task RunDialogManually(string chatId, string dialogName, params object[] args)
-        {
-            var dialog = AllDialogs.FirstOrDefault(x => x.Name == dialogName);
-            if (dialog != null)
-            {
-                var conversation = dialog.ConversationOrder.First();
-                SaveStatus(chatId, new DialogStatus(dialog.Name, conversation));
-                await RunDialog(chatId, args: args);
-                RemoveStatus(chatId);
             }
         }
 
@@ -171,6 +167,21 @@ namespace BotConversation
             {
                 DialogStatus.Remove(chatId);
             }
+        }
+
+        private async Task<bool> RunStatelessDialogs(string chatId, object botClient, object message, CancellationToken cancellationToken)
+        {
+            bool @conitnue = true;
+
+            foreach (var dialog in StatelessDialogs)
+            {
+                dialog.ChatId = chatId;
+                dialog.DialogManager = this;
+                dialog.DialogStatus = this.GetDialogStatus(chatId);
+                @conitnue = await dialog.Main(botClient, message, cancellationToken);
+            }
+
+            return conitnue;
         }
     }
 }

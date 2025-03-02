@@ -74,7 +74,7 @@ namespace BotConversation.Dialogs.Base
             if (dialog == null) return;
             
             DialogStatus.SubStatus = new DialogStatus(dialogName, dialog.ConversationOrder.First(), DialogStatus);
-            await this.DialogManager.RunDialog(ChatId, DialogStatus.SubStatus, args);
+            await this.DialogManager.RunDialog(ChatId, DialogStatus.SubStatus, true, args);
         }
 
         public async Task RunDialog(string dialogName, string conversation, params object[] args)
@@ -83,7 +83,7 @@ namespace BotConversation.Dialogs.Base
             if (dialog == null) return;
 
             DialogStatus.SubStatus = new DialogStatus(dialogName, conversation, DialogStatus);
-            await this.DialogManager.RunDialog(ChatId, DialogStatus.SubStatus, args);
+            await this.DialogManager.RunDialog(ChatId, DialogStatus.SubStatus, true, args);
         }
     }
 }
