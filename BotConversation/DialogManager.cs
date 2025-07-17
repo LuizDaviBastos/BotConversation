@@ -171,17 +171,17 @@ namespace BotConversation
 
         private async Task<bool> RunStatelessDialogs(string chatId, object botClient, object message, CancellationToken cancellationToken)
         {
-            bool @conitnue = true;
+            List<bool> @continue = new();
 
             foreach (var dialog in StatelessDialogs)
             {
                 dialog.ChatId = chatId;
                 dialog.DialogManager = this;
                 dialog.DialogStatus = this.GetDialogStatus(chatId);
-                @conitnue = await dialog.Main(botClient, message, cancellationToken);
+                @continue.Add(await dialog.Main(botClient, message, cancellationToken));
             }
 
-            return conitnue;
+            return !@continue.Any(x => !x);
         }
     }
 }
