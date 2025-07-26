@@ -22,5 +22,14 @@
 
         public DialogStatus? Parent { get; set; }
         public  DialogStatus? SubStatus { get;set; }
+        public DialogStatus? Last()
+        {
+            DialogStatus? current = this;
+            while(current.SubStatus != null)
+            {
+                current = current.SubStatus;
+            }
+            return current;
+        }
     }
 }

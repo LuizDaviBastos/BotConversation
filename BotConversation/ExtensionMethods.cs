@@ -8,10 +8,20 @@ namespace BotConversation
 {
     public static class ExtensionMethods
     {
-        public static IServiceCollection AddBotConnector(this IServiceCollection services, ExceptionHandle? exceptionHandle = null)
+        public static IServiceCollection AddBotConnector(this IServiceCollection services, string? dialogsAssemblyName = default, ExceptionHandle? exceptionHandle = null)
         {
-            IEnumerable<Type> dialogTypes = Assembly.GetCallingAssembly().GetTypes().Where(X => X.BaseType == typeof(Dialog));
-            IEnumerable<Type> statelessDialogTypes = Assembly.GetCallingAssembly().GetTypes().Where(X => X.BaseType == typeof(StatelessDialog));
+            Assembly assembly;
+            if (dialogsAssemblyName == default)
+            {
+                assembly = Assembly.GetExecutingAssembly();
+            } 
+            else
+            {
+                assembly = Assembly.Load(dialogsAssemblyName);
+            }
+
+            IEnumerable<Type> dialogTypes = assembly.GetTypes().Where(X => X.BaseType == typeof(Dialog));
+            IEnumerable<Type> statelessDialogTypes = assembly.GetTypes().Where(X => X.BaseType == typeof(StatelessDialog));
             List<Type> allDialogTypes = [.. dialogTypes, .. statelessDialogTypes];
 
             foreach (var dialog in allDialogTypes)

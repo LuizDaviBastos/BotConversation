@@ -68,6 +68,19 @@ namespace BotConversation.Dialogs.Base
             }
         }
 
+        public async Task Next(params object[] args)
+        {
+            var mainStatus = DialogManager.GetDialogStatus(ChatId);
+            var status = mainStatus.Last();
+            DialogManager.Next(ChatId, status);
+            mainStatus = DialogManager.GetDialogStatus(ChatId);
+            status = mainStatus.Last();
+
+            status.ConversationStatus.Sent = false;
+            DialogManager.SaveStatus(ChatId, mainStatus);
+            await this.DialogManager.RunDialog(ChatId, default, true, args);
+        }
+
         public async Task RunDialog(string dialogName, params object[] args)
         {
             Dialog? dialog = DialogManager.AllDialogs.FirstOrDefault(x => x.Name == dialogName);

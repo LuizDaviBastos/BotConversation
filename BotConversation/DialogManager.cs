@@ -96,7 +96,7 @@ namespace BotConversation
 
             if (currentStatus.SubStatus != null)
             {
-                await RunDialog(chatId, currentStatus.SubStatus, args);
+                await RunDialog(chatId, currentStatus.SubStatus, true, args);
                 return;
             }
 
